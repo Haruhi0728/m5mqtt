@@ -1,7 +1,7 @@
 #include <M5Stack.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
-#include "../lib/env.h"
+#include "../include/env.h"
 
 // --- Wi-Fi設定 ---
 
