@@ -19,4 +19,4 @@ monitor:
 
 # webサーバ起動
 server:
-	npx serve web/
+	npx serve web
