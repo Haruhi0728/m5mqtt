@@ -10,8 +10,8 @@ const char* mqtt_server = "broker.hivemq.com";
 const int mqtt_port = 1883;
 
 // ※重要：トピック名は他の人と被らないようにユニークな名前に変更してください
-const char* topic_publish = "m5stack/device_01/status";
-const char* topic_subscribe = "m5stack/device_01/command";
+const char* topic_publish = "m5stack/device_02/status";
+const char* topic_subscribe = "m5stack/device_02/command";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -39,8 +39,16 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("] ");
   Serial.println(message);
 
-  // 受信したメッセージに応じて画面の色を変える
-  if (message == "red") {
+   // 受信したメッセージに応じて画面の色を変える
+  if (message.startsWith("0x")) {
+    // 文字列を16進数の数値に変換 (例: "0xFF00" -> 0xFF00)
+    uint16_t color = (uint16_t)strtol(message.c_str(), NULL, 0);
+
+    M5.Lcd.fillScreen(color);
+    M5.Lcd.setCursor(10, 10);
+    M5.Lcd.printf("Color: %s", message.c_str());
+  }
+  else if (message == "red") {
     M5.Lcd.fillScreen(RED);
     M5.Lcd.setCursor(10, 10);
     M5.Lcd.println("Color: RED");
@@ -126,7 +134,7 @@ void loop() {
     // 送信したことを画面に一瞬表示
     M5.Lcd.fillRect(0, 200, 320, 40, BLACK);
     M5.Lcd.setCursor(10, 210);
-    M5.Lcd.print("Sent: Button A");
+    M5.Lcd.print("oto-sama");
   }
   // ボタンBが押されたらメッセージをPublish(送信)する
   if (M5.BtnB.wasPressed()) {
@@ -137,7 +145,7 @@ void loop() {
     // 送信したことを画面に一瞬表示
     M5.Lcd.fillRect(0, 200, 320, 40, BLACK);
     M5.Lcd.setCursor(10, 210);
-    M5.Lcd.print("Sent: Button B");
+    M5.Lcd.print("melto");
   }
   // ボタンCが押されたらメッセージをPublish(送信)する
   if (M5.BtnC.wasPressed()) {
@@ -148,6 +156,6 @@ void loop() {
     // 送信したことを画面に一瞬表示
     M5.Lcd.fillRect(0, 200, 320, 40, BLACK);
     M5.Lcd.setCursor(10, 210);
-    M5.Lcd.print("Sent: Button C");
+    M5.Lcd.print("potato");
   }
 }
