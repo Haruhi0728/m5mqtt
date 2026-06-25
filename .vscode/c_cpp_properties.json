@@ -10,6 +10,8 @@
             "includePath": [
                 "C:/Users/haruh/GitHub/m5mqtt_raspi/include",
                 "C:/Users/haruh/GitHub/m5mqtt_raspi/src",
+                "C:/Users/haruh/GitHub/m5mqtt_raspi/.pio/libdeps/m5stack-core-esp32/ArduinoJson/src",
+                "C:/Users/haruh/GitHub/m5mqtt_raspi/.pio/libdeps/m5stack-core-esp32/ESP32Servo/src",
                 "C:/Users/haruh/GitHub/m5mqtt_raspi/.pio/libdeps/m5stack-core-esp32/PubSubClient/src",
                 "C:/Users/haruh/GitHub/m5mqtt_raspi/.pio/libdeps/m5stack-core-esp32/M5Stack/src",
                 "C:/Users/haruh/.platformio/packages/framework-arduinoespressif32/libraries/SPIFFS/src",
@@ -248,6 +250,8 @@
                 "path": [
                     "C:/Users/haruh/GitHub/m5mqtt_raspi/include",
                     "C:/Users/haruh/GitHub/m5mqtt_raspi/src",
+                    "C:/Users/haruh/GitHub/m5mqtt_raspi/.pio/libdeps/m5stack-core-esp32/ArduinoJson/src",
+                    "C:/Users/haruh/GitHub/m5mqtt_raspi/.pio/libdeps/m5stack-core-esp32/ESP32Servo/src",
                     "C:/Users/haruh/GitHub/m5mqtt_raspi/.pio/libdeps/m5stack-core-esp32/PubSubClient/src",
                     "C:/Users/haruh/GitHub/m5mqtt_raspi/.pio/libdeps/m5stack-core-esp32/M5Stack/src",
                     "C:/Users/haruh/.platformio/packages/framework-arduinoespressif32/libraries/SPIFFS/src",

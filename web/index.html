@@ -1,260 +1,130 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MQTT PC Controller</title>
-    <!-- 見た目を整えるためのTailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- ブラウザ用MQTTライブラリ (MQTT.js) -->
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-    <style>
-      /* ログエリアのスクロール用スタイル */
-      #log-container {
-        height: 300px;
-        overflow-y: auto;
-      }
-    </style>
-  </head>
-  <body class="bg-gray-100 p-8 font-sans">
-    <div class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md">
-      <h1 class="text-2xl font-bold mb-4 text-gray-800">
-        M5Stack MQTT コントローラー
-      </h1>
+<head>
+<meta charset="UTF-8">
+<title>M5 Servo Controller</title>
 
-      <!-- 接続・トピック設定 -->
-      <div class="mb-6 bg-gray-50 p-4 rounded border">
-        <h2 class="text-sm font-bold text-gray-500 uppercase mb-3">設定</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1"
-              >送信トピック (Web -> M5)</label
-            >
-            <input
-              type="text"
-              id="topic-publish-input"
-              class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1"
-              >受信トピック (M5 -> Web)</label
-            >
-            <input
-              type="text"
-              id="topic-subscribe-input"
-              class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
-            />
-          </div>
-        </div>
-        <div class="flex items-center justify-between">
-          <div class="flex items-center">
-            <span class="text-sm font-semibold mr-2">ステータス:</span>
-            <span
-              id="status-badge"
-              class="px-3 py-1 rounded-full text-sm font-bold bg-gray-300 text-gray-700"
-              >未接続</span
-            >
-          </div>
-          <button
-            onclick="updateTopics()"
-            class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-4 rounded transition"
-          >
-            設定を更新
-          </button>
-        </div>
-      </div>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
-      <!-- M5Stackを操作するボタン（Publish） -->
-      <div class="mb-6 border-t pt-4">
-        <h2 class="text-lg font-semibold mb-2">M5Stackへ送信 (Publish)</h2>
-        <p class="text-sm text-gray-600 mb-3">
-          ボタンを押すとM5Stackの画面の色が変わります。
-        </p>
-        <div class="flex gap-2 mb-4">
-          <button
-            onclick="publishMessage('red')"
-            class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded transition"
-          >
-            赤 (Red)
-          </button>
-          <button
-            onclick="publishMessage('green')"
-            class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition"
-          >
-            緑 (Green)
-          </button>
-          <button
-            onclick="publishMessage('blue')"
-            class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition"
-          >
-            青 (Blue)
-          </button>
-        </div>
+<style>
 
-        <div class="flex gap-2">
-          <input
-            type="text"
-            id="custom-text"
-            placeholder="好きな文字を入力..."
-            class="border border-gray-300 rounded px-3 py-2 flex-grow focus:outline-none focus:border-blue-500"
-          />
-          <button
-            onclick="publishCustomText()"
-            class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded transition"
-          >
-            テキスト送信
-          </button>
-        </div>
-      </div>
+body{
+    font-family:sans-serif;
+    padding:30px;
+}
 
-      <!-- M5Stackからの受信ログ（Subscribe） -->
-      <div class="border-t pt-4">
-        <h2 class="text-lg font-semibold mb-2">
-          M5Stackからの受信 (Subscribe)
-        </h2>
-        <div
-          id="log-container"
-          class="bg-gray-900 text-green-400 p-4 rounded font-mono text-sm shadow-inner"
-        >
-          <!-- ログがここに追加されます -->
-        </div>
-      </div>
-    </div>
+button{
+    width:150px;
+    height:50px;
+    margin:10px;
+    font-size:20px;
+}
 
-    <script>
-      // --- MQTT初期設定 ---
-      const brokerUrl = "wss://broker.hivemq.com:8884/mqtt";
+input{
+    width:100px;
+    font-size:20px;
+}
 
-      // デフォルトトピック
-      let topicSubscribe = "m5stack/device_01/status";
-      let topicPublish = "m5stack/device_01/command";
+</style>
+</head>
 
-      const statusBadge = document.getElementById("status-badge");
-      const logContainer = document.getElementById("log-container");
-      const customTextInput = document.getElementById("custom-text");
-      const topicPublishInput = document.getElementById("topic-publish-input");
-      const topicSubscribeInput = document.getElementById(
-        "topic-subscribe-input",
-      );
+<body>
 
-      // 初期値を入力欄にセット
-      topicPublishInput.value = topicPublish;
-      topicSubscribeInput.value = topicSubscribe;
+<h1>M5Stack Servo Controller</h1>
 
-      // MQTTクライアントの初期化と接続
-      addLog("システム", `ブローカー (${brokerUrl}) に接続中...`);
-      const client = mqtt.connect(brokerUrl);
+<p>
+角度:
+<input type="number" id="angle" value="180">
+</p>
 
-      // 接続成功時の処理
-      client.on("connect", () => {
-        statusBadge.textContent = "接続済み";
-        statusBadge.className =
-          "px-3 py-1 rounded-full text-sm font-bold bg-green-100 text-green-700";
-        addLog("システム", "MQTTブローカーに接続しました！");
+<p>
+時間(ms):
+<input type="number" id="duration" value="500">
+</p>
 
-        // 初期トピックをSubscribe
-        subscribeToTopic(topicSubscribe);
-      });
+<button onclick="sendServo()">
+送信
+</button>
 
-      // トピック設定を更新する関数
-      function updateTopics() {
-        const newPublish = topicPublishInput.value.trim();
-        const newSubscribe = topicSubscribeInput.value.trim();
+<button onclick="lockServo()">
+LOCK
+</button>
 
-        if (newPublish === "" || newSubscribe === "") {
-          alert("トピック名を入力してください。");
-          return;
-        }
+<button onclick="openServo()">
+OPEN
+</button>
 
-        // Subscribe対象が変わった場合
-        if (newSubscribe !== topicSubscribe) {
-          addLog("システム", `購読解除: ${topicSubscribe}`);
-          client.unsubscribe(topicSubscribe);
-          topicSubscribe = newSubscribe;
-          subscribeToTopic(topicSubscribe);
-        }
+<p id="status">未接続</p>
 
-        // Publish対象の更新
-        if (newPublish !== topicPublish) {
-          topicPublish = newPublish;
-          addLog("システム", `送信先トピックを変更しました: ${topicPublish}`);
-        }
+<script>
 
-        alert("トピック設定を更新しました。");
-      }
+// MQTT接続
+const client = mqtt.connect(
+    "wss://broker.hivemq.com:8884/mqtt"
+);
 
-      // 指定したトピックをSubscribeする補助関数
-      function subscribeToTopic(topic) {
-        client.subscribe(topic, (err) => {
-          if (!err) {
-            addLog(
-              "システム",
-              `トピック '${topic}' の受信待機を開始しました。`,
-            );
-          } else {
-            addLog("エラー", `Subscribe ('${topic}') に失敗しました。`);
-          }
-        });
-      }
+client.on("connect", () => {
 
-      // 接続が切れた時の処理
-      client.on("offline", () => {
-        statusBadge.textContent = "オフライン";
-        statusBadge.className =
-          "px-3 py-1 rounded-full text-sm font-bold bg-red-100 text-red-700";
-        addLog("システム", "ブローカーから切断されました。再接続を試みます...");
-      });
+    console.log("MQTT connected");
 
-      // メッセージ受信時の処理
-      client.on("message", (topic, message) => {
-        // messageはBuffer型なので文字列に変換
-        const msgString = message.toString();
-        addLog("受信", `[${topic}] ${msgString}`);
-      });
+    document.getElementById("status").innerText =
+        "MQTT接続成功";
+});
 
-      // M5Stackへメッセージを送信する関数 (ボタン用)
-      function publishMessage(msg) {
-        if (client.connected) {
-          client.publish(topicPublish, msg);
-          addLog("送信", `[${topicPublish}] ${msg}`);
-        } else {
-          alert("MQTTブローカーに接続されていません。");
-        }
-      }
+// ===== 任意送信 =====
+function sendServo(){
 
-      // M5Stackへカスタムテキストを送信する関数 (入力フォーム用)
-      function publishCustomText() {
-        const text = customTextInput.value;
-        if (text.trim() !== "") {
-          publishMessage(text);
-          customTextInput.value = ""; // 入力欄をクリア
-        }
-      }
+    const angle =
+        parseInt(document.getElementById("angle").value);
 
-      // Enterキーで送信できるようにイベントリスナーを追加
-      customTextInput.addEventListener("keypress", (e) => {
-        if (e.key === "Enter") {
-          publishCustomText();
-        }
-      });
+    const duration =
+        parseInt(document.getElementById("duration").value);
 
-      // ログを画面に追加する補助関数
-      function addLog(type, message) {
-        const time = new Date().toLocaleTimeString();
-        const logElement = document.createElement("div");
-        logElement.className = "mb-1";
+    const msg = {
 
-        let typeColor = "text-gray-400";
-        if (type === "受信") typeColor = "text-blue-400 font-bold";
-        if (type === "送信") typeColor = "text-yellow-400 font-bold";
+        angle: angle,
+        duration: duration
+    };
 
-        logElement.innerHTML = `<span class="text-gray-500">[${time}]</span> <span class="${typeColor}">${type}:</span> ${message}`;
-        logContainer.appendChild(logElement);
+    client.publish(
+        "m5stack/device_02/servo",
+        JSON.stringify(msg)
+    );
 
-        // 最新のログが見えるように一番下までスクロール
-        logContainer.scrollTop = logContainer.scrollHeight;
-      }
-    </script>
-  </body>
+    console.log(msg);
+}
+
+// ===== LOCK =====
+function lockServo(){
+
+    const msg = {
+
+        angle: 0,
+        duration: 500
+    };
+
+    client.publish(
+        "m5stack/device_02/servo",
+        JSON.stringify(msg)
+    );
+}
+
+// ===== OPEN =====
+function openServo(){
+
+    const msg = {
+
+        angle: 180,
+        duration: 500
+    };
+
+    client.publish(
+        "m5stack/device_02/servo",
+        JSON.stringify(msg)
+    );
+}
+
+</script>
+
+</body>
 </html>
