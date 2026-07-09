@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+<meta charset="UTF-8">
+<title>M5 Servo Controller</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body{
+    font-family:sans-serif;
+    padding:30px;
+}
+
+button{
+    width:180px;
+    height:50px;
+    margin:10px;
+    font-size:18px;
+}
+
+input{
+    width:120px;
+    font-size:20px;
+}
+
+.log{
+    margin-top:20px;
+    padding:12px;
+    background:#f2f2f2;
+    white-space:pre-wrap;
+}
+
+.userbox{
+    padding:15px;
+    margin-bottom:20px;
+    background:#e8f4ff;
+}
+
+#loginArea{
+    display:none;
+}
+
+#controlArea{
+    display:none;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>M5Stack Servo Controller</h1>
+
+<!-- =========================
+     ログイン画面
+========================= -->
+<div id="loginArea" class="userbox">
+
+    <h2>ログイン</h2>
+
+    <p id="loginStatus">
+        Googleアカウントでログインしてください。
+    </p>
+
+    <button onclick="googleLogin()">
+        Googleでログイン
+    </button>
+
+</div>
+
+
+<!-- =========================
+     コントロール画面
+========================= -->
+<div id="controlArea">
+
+    <div class="userbox">
+
+        <p id="userInfo">
+            ログイン確認中...
+        </p>
+
+        <button onclick="logout()">
+            ログアウト
+        </button>
+
+    </div>
+
+    <p>
+        角度:
+        <input type="number" id="angle" value="180">
+    </p>
+
+    <p>
+        時間(ms):
+        <input type="number" id="duration" value="500">
+    </p>
+
+    <button onclick="sendServo()">
+        送信
+    </button>
+
+    <button onclick="lockServo()">
+        LOCK
+    </button>
+
+    <button onclick="openServo()">
+        OPEN
+    </button>
+
+    <p id="status">
+        接続確認中...
+    </p>
+
+    <h2>結果</h2>
+
+    <div id="result" class="log">
+        まだ操作していません
+    </div>
+
+    <h2>最近のログ</h2>
+
+    <button onclick="loadLogs()">
+        ログ更新
+    </button>
+
+    <div id="logs" class="log">
+        ログ未取得
+    </div>
+
+</div>
+
+
+<script>
+
+// =========================
+// Supabase設定
+// =========================
+
+const SUPABASE_URL =
+"https://mqfrepagtgucjsausxao.supabase.co";
+
+const SUPABASE_KEY =
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xZnJlcGFndGd1Y2pzYXVzeGFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1MTczNTAsImV4cCI6MjA5OTA5MzM1MH0.5VDODBSlPLSFGfC20cNpILbbtoKzspbokkAbI5f4pQw";
+
+const supabaseClient =
+window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+);
+
+
+// =========================
+// Googleログイン
+// =========================
+
+async function googleLogin() {
+
+    document.getElementById("loginStatus").innerText =
+        "Googleログイン画面へ移動中...";
+
+    const { data, error } =
+        await supabaseClient.auth.signInWithOAuth({
+            provider: "google",
+            options: {
+                redirectTo: window.location.origin
+            }
+        });
+
+    if(error){
+        console.error("Googleログインエラー:", error);
+
+        document.getElementById("loginStatus").innerText =
+            "ログインエラー: " + error.message;
+
+        alert("Googleログインエラー: " + error.message);
+        return;
+    }
+
+    console.log("Googleログイン処理:", data);
+}
+
+
+// =========================
+// ログアウト
+// =========================
+
+async function logout() {
+
+    await supabaseClient.auth.signOut();
+
+    location.reload();
+
+}
+
+
+// =========================
+// 現在ユーザー取得
+// =========================
+
+async function getCurrentUser() {
+
+    const {
+        data: { user },
+        error
+    } = await supabaseClient.auth.getUser();
+
+    if(error){
+        console.error("ユーザー取得エラー:", error);
+        return null;
+    }
+
+    return user;
+}
+
+
+// =========================
+// 画面切り替え
+// =========================
+
+async function checkUser() {
+
+    const user = await getCurrentUser();
+
+    if(user){
+
+        showControlArea(user);
+
+    }else{
+
+        showLoginArea();
+
+    }
+}
+
+
+// =========================
+// ログイン画面表示
+// =========================
+
+function showLoginArea() {
+
+    document.getElementById("loginArea").style.display =
+        "block";
+
+    document.getElementById("controlArea").style.display =
+        "none";
+
+    document.getElementById("loginStatus").innerText =
+        "Googleアカウントでログインしてください。";
+}
+
+
+// =========================
+// コントロール画面表示
+// =========================
+
+function showControlArea(user) {
+
+    document.getElementById("loginArea").style.display =
+        "none";
+
+    document.getElementById("controlArea").style.display =
+        "block";
+
+    const name =
+        user.user_metadata.name || "名前なし";
+
+    document.getElementById("userInfo").innerText =
+        `ログイン中 : ${name} (${user.email})`;
+
+    document.getElementById("status").innerText =
+        "Google認証済み。操作できます。";
+
+    loadLogs();
+}
+
+
+// =========================
+// Flask API送信
+// =========================
+
+async function sendServoCommand(
+    angle,
+    duration,
+    action
+){
+
+    const user = await getCurrentUser();
+
+    if(!user){
+
+        alert("先にGoogleログインしてください");
+
+        showLoginArea();
+
+        return;
+    }
+
+    const userName =
+        user.user_metadata.name || "unknown-name";
+
+    const response = await fetch(
+        "/api/servo",
+        {
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json"
+            },
+            body:JSON.stringify({
+                action:action,
+                angle:angle,
+                duration:duration,
+                email:user.email,
+                name:userName
+            })
+        }
+    );
+
+    const result =
+        await response.json();
+
+    document.getElementById("result").innerText =
+        JSON.stringify(result,null,2);
+
+    loadLogs();
+}
+
+
+// =========================
+// 任意角度
+// =========================
+
+function sendServo(){
+
+    const angle =
+        parseInt(
+            document.getElementById("angle").value
+        );
+
+    const duration =
+        parseInt(
+            document.getElementById("duration").value
+        );
+
+    sendServoCommand(
+        angle,
+        duration,
+        "CUSTOM"
+    );
+}
+
+
+// =========================
+// LOCK
+// =========================
+
+function lockServo(){
+
+    sendServoCommand(
+        0,
+        500,
+        "LOCK"
+    );
+}
+
+
+// =========================
+// OPEN
+// =========================
+
+function openServo(){
+
+    sendServoCommand(
+        180,
+        500,
+        "OPEN"
+    );
+}
+
+
+// =========================
+// ログ取得
+// =========================
+
+async function loadLogs(){
+
+    try{
+
+        const response =
+            await fetch("/logs");
+
+        const logs =
+            await response.json();
+
+        document.getElementById("logs").innerText =
+            JSON.stringify(
+                logs,
+                null,
+                2
+            );
+
+    }catch(error){
+
+        document.getElementById("logs").innerText =
+            error.toString();
+
+    }
+}
+
+
+// =========================
+// 認証状態変化を監視
+// =========================
+
+supabaseClient.auth.onAuthStateChange(
+    async function(event, session){
+
+        console.log("Auth state changed:", event);
+
+        if(session && session.user){
+
+            showControlArea(session.user);
+
+        }else{
+
+            showLoginArea();
+
+        }
+    }
+);
+
+
+// =========================
+// 起動時
+// =========================
+
+checkUser();
+
+</script>
+
+</body>
+</html>
